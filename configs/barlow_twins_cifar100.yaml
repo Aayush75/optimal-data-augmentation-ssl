@@ -1,0 +1,93 @@
+# Configuration for Barlow Twins Optimal Augmentation Experiment
+# Based on: A Theoretical Characterization of Optimal Data Augmentations in Self-Supervised Learning
+# Paper: arXiv:2411.01767v3
+
+experiment:
+  name: "barlow_twins_cifar100_resnet18"
+  seed: 42
+  device: "cuda"  # "cuda" or "cpu"
+  output_dir: "results"
+
+# Dataset Configuration
+data:
+  dataset: "cifar100"
+  data_dir: "data"
+  num_train_samples: 10000  # Number of training samples to use for augmentation generation
+  num_classes: 100
+  image_size: 32
+  normalize: true
+  # CIFAR-100 normalization statistics
+  mean: [0.5071, 0.4867, 0.4408]
+  std: [0.2675, 0.2565, 0.2761]
+
+# Target Model Configuration (f*)
+target_model:
+  architecture: "resnet18"
+  pretrained: true
+  weights: "IMAGENET1K_V1"  # PyTorch weights identifier
+  feature_layer: "avgpool"  # Layer to extract features from
+  pca_dim: 64  # Reduce target representations to this dimension via PCA
+  freeze: true  # Freeze target model weights
+
+# Kernel Configuration
+kernel:
+  type: "rbf"  # Options: "linear", "rbf", "polynomial"
+  # RBF kernel parameters
+  rbf:
+    sigma: 1.0
+  # Polynomial kernel parameters (if used)
+  polynomial:
+    degree: 3
+    coef0: 1.0
+  # Linear kernel has no parameters
+
+# Barlow Twins Augmentation Parameters (Algorithm 1)
+augmentation:
+  method: "barlow_twins"  # Only Barlow Twins in this implementation
+  lambda_ridge: 1.0  # Ridge parameter for kernel ridge regression
+  mu_p: 1.0  # Pre-image problem regularization parameter
+  prob_augment: 0.5  # Probability of applying augmentation (vs identity)
+
+# Barlow Twins Loss Parameters (for verification)
+barlow_twins:
+  lambda_param: 0.005  # Off-diagonal penalty weight (λ in the paper)
+  batch_size: 256
+  learning_rate: 0.001
+  num_epochs: 3000
+  optimizer: "adam"
+  # Symmetrized unnormalized cross-correlation as in paper
+  normalize_repr: false  # We use unnormalized as in Simon et al. (2023)
+
+# Lyapunov Equation Solver
+lyapunov:
+  method: "scipy"  # Use scipy.linalg.solve_continuous_lyapunov
+  check_stability: true  # Verify positive definiteness
+
+# Pre-image Problem Solver
+preimage:
+  solver: "closed_form"  # Honeine & Richard (2011) closed-form solution
+  max_iterations: 1000  # For iterative methods (not used in closed-form)
+  tolerance: 1e-6
+
+# Experiment Tracking
+logging:
+  log_interval: 100  # Log every N steps
+  save_checkpoints: true
+  checkpoint_interval: 500
+  tensorboard: true
+  verbose: true
+
+# Visualization
+visualization:
+  num_samples: 100  # Number of samples to visualize
+  save_original: true
+  save_augmented: true
+  compare_kernels: ["linear", "rbf"]  # Generate augmentations with multiple kernels
+  grid_size: [10, 10]  # For image grids
+
+# Procrustes Analysis
+procrustes:
+  compute_distance: true
+  num_iterations: 3000  # Match num_epochs
+  compare_random: true  # Compare with random representations
+  save_plots: true

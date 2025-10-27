@@ -1,0 +1,63 @@
+# Kernel-specific configurations for different experiments
+# These can be used to test different kernel functions
+
+kernels:
+  # Linear Kernel: K(x, y) = x^T y
+  linear:
+    type: "linear"
+    description: "Linear kernel with no parameters"
+    
+  # RBF (Gaussian) Kernel: K(x, y) = exp(-||x-y||^2 / (2*sigma^2))
+  rbf_small:
+    type: "rbf"
+    sigma: 0.5
+    description: "RBF kernel with small bandwidth"
+    
+  rbf_medium:
+    type: "rbf"
+    sigma: 1.0
+    description: "RBF kernel with medium bandwidth (default)"
+    
+  rbf_large:
+    type: "rbf"
+    sigma: 3.0
+    description: "RBF kernel with large bandwidth"
+    
+  # Polynomial Kernel: K(x, y) = (x^T y + coef0)^degree
+  polynomial_2:
+    type: "polynomial"
+    degree: 2
+    coef0: 1.0
+    description: "Polynomial kernel of degree 2"
+    
+  polynomial_3:
+    type: "polynomial"
+    degree: 3
+    coef0: 1.0
+    description: "Polynomial kernel of degree 3"
+    
+  polynomial_5:
+    type: "polynomial"
+    degree: 5
+    coef0: 1.0
+    description: "Polynomial kernel of degree 5"
+
+# Default kernel for experiments
+default: "rbf_medium"
+
+# Kernel combinations for comparative analysis
+comparisons:
+  bandwidth_study:
+    - "rbf_small"
+    - "rbf_medium"
+    - "rbf_large"
+    
+  kernel_types:
+    - "linear"
+    - "rbf_medium"
+    - "polynomial_3"
+    
+  polynomial_degrees:
+    - "polynomial_2"
+    - "polynomial_3"
+    - "polynomial_5"
