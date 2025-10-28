@@ -6,7 +6,6 @@ Downloads and caches pretrained ResNet-18 model for use as target f*.
 
 import torch
 import torchvision.models as models
-from torchvision.models import ResNet18_Weights
 import os
 
 
@@ -22,9 +21,8 @@ def download_resnet18(save_dir = "models/pretrained"):
     # Create directory
     os.makedirs(save_dir, exist_ok=True)
     
-    # Download model with weights
-    weights = ResNet18_Weights.IMAGENET1K_V1
-    model = models.resnet18(weights=weights)
+    # Download model with weights (old API for torchvision 0.11.2)
+    model = models.resnet18(pretrained=True)
     
     # Save model
     save_path = os.path.join(save_dir, "resnet18_imagenet.pth")
@@ -50,19 +48,19 @@ def verify_model(model_path = "models/pretrained/resnet18_imagenet.pth"):
         return False
     
     try:
-        # Load model
-        model = models.resnet18(weights=None)
+        # Load model (old API for torchvision 0.11.2)
+        model = models.resnet18(pretrained=False)
         state_dict = torch.load(model_path)
         model.load_state_dict(state_dict)
         
-        print(" Model loaded successfully")
+        print("Model loaded successfully")
         
         # Test forward pass
         dummy_input = torch.randn(1, 3, 224, 224)
         with torch.no_grad():
             output = model(dummy_input)
         
-        print(f"Forward pass successful")
+        print("Forward pass successful")
         print(f"  Output shape: {output.shape}")
         
         return True

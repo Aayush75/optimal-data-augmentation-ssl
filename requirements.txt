@@ -1,27 +1,26 @@
-# Core Dependencies
-torch>=2.0.0
-torchvision>=0.15.0
-numpy>=1.24.0
-scipy>=1.10.0
-scikit-learn>=1.3.0
+# Core Dependencies (Python 3.6.9+ compatible)
+# Note: Adjust torch and torchvision versions based on your CUDA version
+torch>=1.10.0
+torchvision>=0.11.0
+numpy>=1.19.0,<1.20.0
+scipy>=1.5.0
+scikit-learn>=0.24.0
 
 # Data & Visualization
-matplotlib>=3.7.0
-seaborn>=0.12.0
-Pillow>=9.5.0
-tqdm>=4.65.0
+matplotlib>=3.3.0
+seaborn>=0.11.0
+Pillow>=8.0.0
+tqdm>=4.50.0
 
 # Configuration
-PyYAML>=6.0
+PyYAML>=5.3
 
-# Jupyter Support
-jupyter>=1.0.0
-ipykernel>=6.25.0
-ipywidgets>=8.0.0
+# Utilities (optional)
+pandas>=1.1.0
+tensorboard>=2.4.0
 
-# Utilities
-pandas>=2.0.0
-tensorboard>=2.13.0
+# Note: For Python 3.6.9 with CUDA 10.2, you might already have:
+#   torch==1.10.0+cu102
+#   torchvision==0.11.2+cu102
+# If so, you can comment out the torch/torchvision lines above
 
-# Optional: For faster linear algebra
-# mkl>=2023.0  # Intel MKL for faster computations

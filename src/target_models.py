@@ -61,16 +61,14 @@ class TargetModel:
         # CIFAR-100 preprocessing
         self.preprocess = self._get_preprocessing()
         
-    def _load_model(self) -> nn.Module:
+    def _load_model(self):
         """Load pretrained model."""
         if self.architecture.lower() == "resnet18":
             if self.pretrained:
-                # Use new weights API
-                from torchvision.models import ResNet18_Weights
-                weights = ResNet18_Weights.IMAGENET1K_V1
-                model = models.resnet18(weights=weights)
+                # Use old API for torchvision 0.11.2
+                model = models.resnet18(pretrained=True)
             else:
-                model = models.resnet18(weights=None)
+                model = models.resnet18(pretrained=False)
         else:
             raise ValueError(f"Unsupported architecture: {self.architecture}")
         

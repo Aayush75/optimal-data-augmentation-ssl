@@ -15,6 +15,13 @@ This repository implements Algorithm 1 from the paper, which generates optimal a
 - Procrustes distance tracking
 - Pre-image problem solver
 
+### Requirements
+
+- Python 3.6.9+
+- PyTorch with CUDA support (tested with torchvision 0.11.2+cu102)
+- 8GB+ RAM
+- GPU recommended for faster training
+
 ## Installation
 
 ```bash
@@ -24,6 +31,8 @@ pip install -r requirements.txt
 # Download pretrained models
 python scripts/download_models.py
 ```
+
+**Note**: This code is compatible with Python 3.6.9 and torchvision 0.11.2. It uses the legacy `pretrained=True` API instead of the newer weights API.
 
 ## Quick Start
 

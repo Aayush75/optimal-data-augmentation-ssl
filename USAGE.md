@@ -13,9 +13,12 @@ Complete guide for using this implementation of "A Theoretical Characterization 
 ## Installation
 
 ### Prerequisites
-- Python 3.8 or higher
+- Python 3.6.9 or higher
+- PyTorch with CUDA support (tested with torchvision 0.11.2+cu102)
 - CUDA-capable GPU (recommended, but CPU works)
 - 8GB+ RAM
+
+**Compatibility Note**: This codebase is specifically designed to work with Python 3.6.9 and torchvision 0.11.2. It uses the legacy `models.resnet18(pretrained=True)` API instead of the newer weights enum API.
 
 ### Setup
 
