@@ -40,7 +40,9 @@ def generate_images_for_kernel(kernel_name, kernel_config, X_train, F_target, co
     print(f"Generating augmentations with {kernel_name} kernel")
     print(f"{'='*60}")
     
-    kernel = get_kernel(**kernel_config)
+    kernel_type = kernel_config['type']
+    kernel_params = {k: v for k, v in kernel_config.items() if k not in ['type', 'description']}
+    kernel = get_kernel(kernel_type, **kernel_params)
     print(f"Kernel: {kernel}")
     
     generator = BarlowTwinsAugmentationGenerator(

@@ -105,11 +105,9 @@ def run_experiment(config_path="configs/barlow_twins_cifar100.yaml"):
     print("STEP 3: GENERATING OPTIMAL AUGMENTATIONS")
     print("="*80)
     
-    kernel_config = {
-        'type': config['kernel']['type'],
-        **config['kernel'].get(config['kernel']['type'], {})
-    }
-    kernel = get_kernel(**kernel_config)
+    kernel_type = config['kernel']['type']
+    kernel_params = config['kernel'].get(kernel_type, {})
+    kernel = get_kernel(kernel_type, **kernel_params)
     print(f"Kernel: {kernel}")
     
     generator = BarlowTwinsAugmentationGenerator(
