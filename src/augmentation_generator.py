@@ -126,6 +126,21 @@ class BarlowTwinsAugmentationGenerator:
         self.fit(X, F_target)
         return self.transform(indices=indices)
     
+    def _compute_lyapunov_residual(self):
+        """
+        Compute residual of Lyapunov equation: KB + BK = RHS
+        """
+        if self.B is None or self.K is None or self.C is None:
+            return None
+        
+        n = self.K.shape[0]
+        RHS = 2 * n * (np.eye(n) - self.K @ np.linalg.inv(self.C.T @ self.C + 1e-6 * np.eye(n)) @ self.K.T)
+        
+        lhs = self.K @ self.B + self.B @ self.K
+        residual = np.linalg.norm(lhs - RHS, 'fro') / np.linalg.norm(RHS, 'fro')
+        
+        return float(residual)
+    
     def get_augmentation_distribution(self):
         """
         Get info about the learned augmentation distribution.
@@ -136,12 +151,22 @@ class BarlowTwinsAugmentationGenerator:
         
         eigvals = np.linalg.eigvalsh(self.T_H_matrix)
         
+        # Small negative eigenvalues due to numerical errors should be treated as zero
+        min_eig = eigvals.min()
+        if min_eig < 0 and abs(min_eig) < 1e-6:
+            min_eig = 0.0
+        
+        # Avoid division by very small numbers in condition number
+        condition_num = eigvals.max() / max(abs(min_eig), 1e-10)
+        
         return {
             'transformation_matrix': self.T_H_matrix,
             'eigenvalues': eigvals,
-            'min_eigenvalue': eigvals.min(),
+            'min_eigenvalue': min_eig,
             'max_eigenvalue': eigvals.max(),
-            'condition_number': eigvals.max() / max(eigvals.min(), 1e-10),
+            'condition_number': condition_num,
+            'T_H_frobenius_norm': np.linalg.norm(self.T_H_matrix, 'fro'),
+            'lyapunov_residual': self._compute_lyapunov_residual() if hasattr(self, 'B') else None,
         }
     
     def verify_optimality(self, F_learned, F_target, tolerance=1e-3):

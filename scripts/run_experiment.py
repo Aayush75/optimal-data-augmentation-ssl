@@ -35,9 +35,13 @@ def load_config(config_path):
     return config
 
 
-def run_experiment(config_path="configs/barlow_twins_cifar100.yaml"):
+def run_experiment(config_path="configs/barlow_twins_cifar100.yaml", resume=False):
     """
     Run the complete optimal augmentation experiment.
+    
+    Args:
+        config_path: Path to configuration file
+        resume: If True, try to resume from checkpoint
     """
     config = load_config(config_path)
     
@@ -45,8 +49,13 @@ def run_experiment(config_path="configs/barlow_twins_cifar100.yaml"):
     
     output_dir = config['experiment']['output_dir']
     plots_dir = os.path.join(output_dir, 'plots')
+    checkpoint_dir = os.path.join(output_dir, 'checkpoints')
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(plots_dir, exist_ok=True)
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    
+    checkpoint_path = os.path.join(checkpoint_dir, 'generator_checkpoint.npz')
+    has_checkpoint = os.path.exists(checkpoint_path)
     
     print("="*80)
     print("OPTIMAL DATA AUGMENTATION EXPERIMENT - BARLOW TWINS")
@@ -105,21 +114,76 @@ def run_experiment(config_path="configs/barlow_twins_cifar100.yaml"):
     print("STEP 3: GENERATING OPTIMAL AUGMENTATIONS")
     print("="*80)
     
-    kernel_type = config['kernel']['type']
-    kernel_params = config['kernel'].get(kernel_type, {})
-    kernel = get_kernel(kernel_type, **kernel_params)
-    print(f"Kernel: {kernel}")
+    # Check if we should resume from checkpoint
+    if resume and has_checkpoint:
+        print(f"\nFound checkpoint at: {checkpoint_path}")
+        print("Loading from checkpoint...")
+        
+        checkpoint = np.load(checkpoint_path)
+        
+        kernel_type = config['kernel']['type']
+        kernel_params = config['kernel'].get(kernel_type, {})
+        kernel = get_kernel(kernel_type, **kernel_params)
+        
+        generator = BarlowTwinsAugmentationGenerator(
+            kernel=kernel,
+            lambda_ridge=config['augmentation']['lambda_ridge'],
+            mu_p=config['augmentation']['mu_p'],
+            check_conditions=False,
+        )
+        
+        # Restore generator state
+        generator.K = checkpoint['K']
+        generator.C = checkpoint['C']
+        generator.B = checkpoint['B']
+        generator.T_H_matrix = checkpoint['T_H_matrix']
+        generator.X_train = checkpoint['X_train']
+        
+        F_target = checkpoint['F_target']
+        
+        print("Checkpoint loaded successfully!")
+        print("Skipping Lyapunov equation solving...")
+        
+        aug_info = generator.get_augmentation_distribution()
+        
+    else:
+        if resume and not has_checkpoint:
+            print("\nNo checkpoint found. Starting from scratch...")
+        
+        kernel_type = config['kernel']['type']
+        kernel_params = config['kernel'].get(kernel_type, {})
+        kernel = get_kernel(kernel_type, **kernel_params)
+        print(f"Kernel: {kernel}")
+        
+        generator = BarlowTwinsAugmentationGenerator(
+            kernel=kernel,
+            lambda_ridge=config['augmentation']['lambda_ridge'],
+            mu_p=config['augmentation']['mu_p'],
+            check_conditions=True,
+        )
+        
+        generator.fit(X_train, F_target)
+        
+        aug_info = generator.get_augmentation_distribution()
+        print("\nAugmentation Distribution Info:")
+        print(f"  Min eigenvalue: {aug_info['min_eigenvalue']:.6e}")
+        print(f"  Max eigenvalue: {aug_info['max_eigenvalue']:.6e}")
+        print(f"  Condition number: {aug_info['condition_number']:.6e}")
+        
+        # Save checkpoint after Lyapunov equation is solved
+        checkpoint_path = os.path.join(checkpoint_dir, 'generator_checkpoint.npz')
+        print(f"\nSaving checkpoint to: {checkpoint_path}")
+        np.savez(
+            checkpoint_path,
+            K=generator.K,
+            C=generator.C,
+            B=generator.B,
+            T_H_matrix=generator.T_H_matrix,
+            X_train=generator.X_train,
+            F_target=F_target,
+        )
+        print("Checkpoint saved successfully!")
     
-    generator = BarlowTwinsAugmentationGenerator(
-        kernel=kernel,
-        lambda_ridge=config['augmentation']['lambda_ridge'],
-        mu_p=config['augmentation']['mu_p'],
-        check_conditions=True,
-    )
-    
-    generator.fit(X_train, F_target)
-    
-    aug_info = generator.get_augmentation_distribution()
     print("\nAugmentation Distribution Info:")
     print(f"  Min eigenvalue: {aug_info['min_eigenvalue']:.6e}")
     print(f"  Max eigenvalue: {aug_info['max_eigenvalue']:.6e}")
@@ -226,21 +290,34 @@ def run_experiment(config_path="configs/barlow_twins_cifar100.yaml"):
         title='Procrustes Distance During Training (Barlow Twins)',
     )
     
+    # Helper function to convert numpy types to Python types for JSON serialization
+    def convert_to_serializable(obj):
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {k: convert_to_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_to_serializable(item) for item in obj]
+        else:
+            return obj
+    
     results = {
         'config': config,
         'final_procrustes_to_target': float(final_dist_target),
         'final_procrustes_to_random': float(final_dist_random),
-        'optimality_check': {k: v for k, v in optimality.items() if k != 'optimal_rotation'},
+        'optimality_check': convert_to_serializable({k: v for k, v in optimality.items() if k != 'optimal_rotation'}),
         'augmentation_info': {
             'min_eigenvalue': float(aug_info['min_eigenvalue']),
             'max_eigenvalue': float(aug_info['max_eigenvalue']),
             'condition_number': float(aug_info['condition_number']),
         },
-        'condition_checks': {
-            'kernel': cond_check,
-            'representations': {k: v for k, v in cond_check.items() 
-                              if not isinstance(v, np.ndarray)},
-        },
+        'condition_checks': convert_to_serializable(cond_check),
     }
     
     import json
@@ -276,7 +353,12 @@ if __name__ == "__main__":
         default="configs/barlow_twins_cifar100.yaml",
         help="Path to configuration file",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from checkpoint if available",
+    )
     
     args = parser.parse_args()
     
-    run_experiment(args.config)
+    run_experiment(args.config, resume=args.resume)
