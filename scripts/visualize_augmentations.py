@@ -35,13 +35,13 @@ target_model = TargetModel(pca_dim=64, device='cuda' if torch.cuda.is_available(
 F_target = target_model.get_target_representations(torch.from_numpy(images), fit_pca=True).T
 print(f"Target representations shape: {F_target.shape}")
 
+# Use only RBF kernels - LinearKernel causes numerical instability
+# (rank deficit and Lyapunov solver issues)
 kernels = {
-    'Linear': LinearKernel(),
     'RBF (sigma=0.5)': RBFKernel(sigma=0.5),
     'RBF (sigma=1.0)': RBFKernel(sigma=1.0),
     'RBF (sigma=2.0)': RBFKernel(sigma=2.0),
-    'Polynomial (d=2)': PolynomialKernel(degree=2, coef0=1.0),
-    'Polynomial (d=3)': PolynomialKernel(degree=3, coef0=1.0)
+    'RBF (sigma=3.0)': RBFKernel(sigma=3.0),
 }
 
 print("\n" + "="*60)
@@ -70,7 +70,8 @@ for name, kernel in kernels.items():
         
         aug_dist = generator.get_augmentation_distribution()
         print(f"  T_H norm: {aug_dist['T_H_frobenius_norm']:.4f}")
-        print(f"  Lyapunov residual: {aug_dist['lyapunov_residual']:.6f}")
+        if aug_dist['lyapunov_residual'] is not None:
+            print(f"  Lyapunov residual: {aug_dist['lyapunov_residual']:.6f}")
         
     except Exception as e:
         print(f"  Failed: {str(e)}")

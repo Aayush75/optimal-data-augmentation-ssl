@@ -82,7 +82,7 @@ visualization:
   num_samples: 100  # Number of samples to visualize
   save_original: true
   save_augmented: true
-  compare_kernels: ["linear", "rbf"]  # Generate augmentations with multiple kernels
+  compare_kernels: ["rbf_small", "rbf_medium", "rbf_large"]  # Only use stable RBF kernels
   grid_size: [10, 10]  # For image grids
 
 # Procrustes Analysis

@@ -199,6 +199,7 @@ def run_experiment(config_path="configs/barlow_twins_cifar100.yaml", resume=Fals
     C_learned = torch.randn(d, n, requires_grad=True, device=device)
     
     K_tensor = torch.from_numpy(generator.K).float().to(device)
+    T_matrix = torch.from_numpy(generator.T_H_matrix).float().to(device)
     
     optimizer = optim.Adam([C_learned], lr=config['barlow_twins']['learning_rate'])
     
@@ -208,6 +209,7 @@ def run_experiment(config_path="configs/barlow_twins_cifar100.yaml", resume=Fals
     )
     
     num_epochs = config['barlow_twins']['num_epochs']
+    batch_size = config['barlow_twins']['batch_size']
     log_interval = config['logging']['log_interval']
     
     procrustes_to_target = []
@@ -216,29 +218,54 @@ def run_experiment(config_path="configs/barlow_twins_cifar100.yaml", resume=Fals
     Q_random = generate_random_orthogonal(d)
     F_random = Q_random @ F_target
     
+    # Create indices for mini-batch sampling
+    indices = torch.arange(n, device=device)
+    
     print(f"Training for {num_epochs} epochs...")
-    print(f"Batch size: all {n} samples")
+    print(f"Batch size: {batch_size} samples")
+    print(f"Total samples: {n}")
+    print(f"Batches per epoch: {(n + batch_size - 1) // batch_size}")
     
     for epoch in tqdm(range(num_epochs), desc="Training"):
-        if np.random.rand() < 0.5:
-            Z1 = C_learned @ K_tensor
-        else:
-            T_matrix = torch.from_numpy(generator.T_H_matrix).float().to(device)
-            Z1 = C_learned @ K_tensor @ T_matrix
+        # Shuffle indices for each epoch
+        perm = torch.randperm(n, device=device)
         
-        if np.random.rand() < 0.5:
-            Z2 = C_learned @ K_tensor
-        else:
-            T_matrix = torch.from_numpy(generator.T_H_matrix).float().to(device)
-            Z2 = C_learned @ K_tensor @ T_matrix
+        epoch_loss = 0.0
+        num_batches = 0
         
-        loss, loss_info = bt_loss(Z1, Z2)
+        # Process in mini-batches
+        for i in range(0, n, batch_size):
+            batch_indices = perm[i:min(i + batch_size, n)]
+            
+            # Sample kernel matrix for this batch
+            K_batch = K_tensor[:, batch_indices]
+            
+            # Generate two augmented views
+            if np.random.rand() < 0.5:
+                Z1 = C_learned @ K_batch
+            else:
+                Z1 = C_learned @ K_batch @ T_matrix[batch_indices, :][:, batch_indices]
+            
+            if np.random.rand() < 0.5:
+                Z2 = C_learned @ K_batch
+            else:
+                Z2 = C_learned @ K_batch @ T_matrix[batch_indices, :][:, batch_indices]
+            
+            # Compute loss
+            loss, loss_info = bt_loss(Z1.T, Z2.T)
+            
+            # Backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            epoch_loss += loss.item()
+            num_batches += 1
         
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        # Compute Procrustes distance (on full dataset)
+        with torch.no_grad():
+            F_learned_np = (C_learned @ K_tensor).detach().cpu().numpy()
         
-        F_learned_np = (C_learned @ K_tensor).detach().cpu().numpy()
         dist_target = compute_procrustes_distance(F_learned_np, F_target)
         dist_random = compute_procrustes_distance(F_learned_np, F_random)
         
@@ -246,11 +273,10 @@ def run_experiment(config_path="configs/barlow_twins_cifar100.yaml", resume=Fals
         procrustes_to_random.append(dist_random)
         
         if (epoch + 1) % log_interval == 0 or epoch == 0:
+            avg_loss = epoch_loss / num_batches
             print(
                 f"Epoch {epoch+1}/{num_epochs} | "
-                f"Loss: {loss_info['loss']:.6f} | "
-                f"On-diag: {loss_info['on_diag_loss']:.6f} | "
-                f"Off-diag: {loss_info['off_diag_loss']:.6f} | "
+                f"Avg Loss: {avg_loss:.6f} | "
                 f"Procrustes: {dist_target:.6f}"
             )
     

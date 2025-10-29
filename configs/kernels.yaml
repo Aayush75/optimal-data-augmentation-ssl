@@ -1,12 +1,9 @@
 # Kernel-specific configurations for different experiments
 # These can be used to test different kernel functions
+# NOTE: LinearKernel causes numerical instability (rank deficit, Lyapunov solver issues)
+# Use only RBF kernels for stable computation
 
 kernels:
-  # Linear Kernel: K(x, y) = x^T y
-  linear:
-    type: "linear"
-    description: "Linear kernel with no parameters"
-    
   # RBF (Gaussian) Kernel: K(x, y) = exp(-||x-y||^2 / (2*sigma^2))
   rbf_small:
     type: "rbf"
@@ -16,33 +13,19 @@ kernels:
   rbf_medium:
     type: "rbf"
     sigma: 1.0
-    description: "RBF kernel with medium bandwidth (default)"
+    description: "RBF kernel with medium bandwidth (default, most stable)"
     
   rbf_large:
     type: "rbf"
-    sigma: 3.0
+    sigma: 2.0
     description: "RBF kernel with large bandwidth"
-    
-  # Polynomial Kernel: K(x, y) = (x^T y + coef0)^degree
-  polynomial_2:
-    type: "polynomial"
-    degree: 2
-    coef0: 1.0
-    description: "Polynomial kernel of degree 2"
-    
-  polynomial_3:
-    type: "polynomial"
-    degree: 3
-    coef0: 1.0
-    description: "Polynomial kernel of degree 3"
-    
-  polynomial_5:
-    type: "polynomial"
-    degree: 5
-    coef0: 1.0
-    description: "Polynomial kernel of degree 5"
+  
+  rbf_extra_large:
+    type: "rbf"
+    sigma: 3.0
+    description: "RBF kernel with extra large bandwidth"
 
-# Default kernel for experiments
+# Default kernel for experiments (most stable)
 default: "rbf_medium"
 
 # Kernel combinations for comparative analysis
@@ -51,13 +34,9 @@ comparisons:
     - "rbf_small"
     - "rbf_medium"
     - "rbf_large"
+    - "rbf_extra_large"
     
-  kernel_types:
-    - "linear"
+  stable_kernels:
+    - "rbf_small"
     - "rbf_medium"
-    - "polynomial_3"
-    
-  polynomial_degrees:
-    - "polynomial_2"
-    - "polynomial_3"
-    - "polynomial_5"
+    - "rbf_large"
