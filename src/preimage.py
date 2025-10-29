@@ -17,9 +17,21 @@ class PreImageSolver:
         self.mu_p = mu_p
         self.method = method
         self.clip_range = clip_range
+        self.X_T_pinv = None  # Pre-computed pseudo-inverse for efficiency
         
         if method not in ["closed_form", "iterative"]:
             raise ValueError(f"Unknown method: {method}")
+    
+    def fit_preimage_solver(self, X):
+        """
+        Pre-compute the pseudo-inverse of X.T for efficient repeated solves.
+        This avoids calling lstsq inside loops.
+        
+        Args:
+            X: (m, n) training data matrix
+        """
+        self.X_T_pinv = np.linalg.pinv(X.T)
+        print(f"Pre-computed pseudo-inverse: shape {self.X_T_pinv.shape}")
     
     def solve(self, X, K, theta):
         """
@@ -35,6 +47,9 @@ class PreImageSolver:
         """
         Closed-form solution from Honeine & Richard (2011).
         Solves: argmin ||X^T x' - (X^T X - μ_P K^{-1}) θ||^2
+        
+        If pseudo-inverse is pre-computed, uses fast matrix-vector product.
+        Otherwise falls back to lstsq.
         """
         m, n = X.shape
         
@@ -45,8 +60,13 @@ class PreImageSolver:
         
         b = (XTX - self.mu_p * K_inv) @ theta
         
-        result = lstsq(X.T, b)
-        x_prime = result[0]
+        # Use pre-computed pseudo-inverse if available (much faster)
+        if self.X_T_pinv is not None:
+            x_prime = self.X_T_pinv @ b
+        else:
+            # Fall back to lstsq if not pre-computed
+            result = lstsq(X.T, b)
+            x_prime = result[0]
         
         if self.clip_range is not None:
             x_prime = np.clip(x_prime, self.clip_range[0], self.clip_range[1])
@@ -114,13 +134,16 @@ class PreImageSolver:
         k = len(x_indices)
         X_aug = np.zeros((m, k))
         
+        # Pre-compute pseudo-inverse once before the loop for efficiency
+        self.fit_preimage_solver(X)
+        
         # For each point to augment
         for i, idx in enumerate(x_indices):
             # Get coefficients for this point's transformation
             # T_H(φ(x_i)) = Φ M e_i = Φ M[:, i]
             theta = M[:, idx]
             
-            # Solve pre-image
+            # Solve pre-image (now uses pre-computed pseudo-inverse)
             X_aug[:, i] = self.solve(X, K, theta)
         
         return X_aug
